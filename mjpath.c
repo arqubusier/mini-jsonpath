@@ -44,7 +44,6 @@ size_t mjpath_allocate(size_t n_targets, mjpath_target_t *targets,
  */
 size_t mjpath_init(size_t n_targets, mjpath_target_t targets[],
                     char** config, mjpath_context* ctx){
-    LIST_INIT(&target_list);
     LIST_INIT(&ctx->target_list);
     ctx->state = MJPATH_START_S;
     size_t i = 0;
@@ -56,24 +55,31 @@ size_t mjpath_init(size_t n_targets, mjpath_target_t targets[],
         target->match_level = 0;
         target->matches = 0;
 
-        //maxdepth, config size
-        size_t depth=0;
+        size_t level=0;
         size_t c=0;
-        for(;depth<MJPATH_MAX_LEVEL;++depth){
-            while (1){
-                if      (pattern[c] == '.'){
-                    ++c; break;}
-                else if (pattern[c] == ']'){
-                    c+=2; break;}
-                else if (pattern[c] == '\0')
+        while (1){
+            if(level+1>=MJPATH_MAX_LEVEL)
                     break;
-                ++c;
+            if      (pattern[c] == '.'){
+                target->substrs[level++] = &pattern[++c];
+                char const* x = &pattern[c-1];
+                DEBUG("%s", x);
+                DEBUG("%s",target->substrs[level-1]) 
             }
-            target->substrs[depth] = &pattern[c];
+            else if (pattern[c] == '['){
+                target->substrs[level++] = &pattern[c++];
+            }
+            else if (pattern[c] == '\0'){
+                break;
+            }
+            else
+                c++;
+        }
+        for (;level<MJPATH_MAX_LEVEL;level++){
+            target->substrs[level] = NULL;
         }
         
         DEBUG("%d", target->tag)
-        LIST_INSERT_HEAD(&target_list, target, neighbours);
         LIST_INSERT_HEAD(&ctx->target_list, target, neighbours);
     }
     return i;
@@ -181,8 +187,10 @@ char* mjpath_get(char *const json, size_t n_targets,
             case MJPATH_FLOAT_S:
                 ctx->state = close_variable(ctx, c); break;
             case MJPATH_STR_S:
-                if (c == '\\')
-                        ctx->state = MJPATH_KEY_ESCAPE_S; break;
+                if (c == '\\'){
+                    ctx->state = MJPATH_KEY_ESCAPE_S;
+                    break;
+                }
                 ctx->state = close_variable(ctx, c); break;
             default:
                 ;
@@ -192,10 +200,100 @@ char* mjpath_get(char *const json, size_t n_targets,
     return buf_p;
 }
 
+/*
+ *
+ */
 void mjpath_debug(mjpath_context *ctx){
     mjpath_target_t *target;
+    
+    printf("---Targets begin----:\n");
     LIST_FOREACH(target, &ctx->target_list, neighbours)
     {
-        DEBUG("%d",target->tag);
+        INFOV("%d",target->tag);
+        INFOV("%d",target->matches);
+        INFOV("%ld",target->match_level);
+        int level = 0;
+        printf("substrs\n");
+        for (;level<MJPATH_MAX_LEVEL; level++){
+            if (target->substrs[level] == NULL)
+                    break;
+            char const*c = target->substrs[level];
+            int escape =0;
+            for (;(escape || *c!='.') && *c!='\0';c++){
+                if (*c=='\\')
+                    escape = 1;
+                else
+                    escape = 0;
+                printf("%c", *c);
+            }
+            printf(" . ");
+        }
+        printf("\n");
+        printf("\n");
+    }
+    printf("---Targets end----:\n");
+
+    char state[22];
+    state2str(ctx->state, state);
+    INFOV("%s", state);
+    printf("---Stack top----:\n");
+    size_t i = 0;
+    for (;i<MJPATH_MAX_LEVEL;i++){
+        size_t j = (MJPATH_MAX_LEVEL-1) - i;
+        int e = ctx->stack[j];
+        if (e == MJPATH_STACK_OBJECT)
+            printf("%ld obj\n", j);
+        else
+            printf("%ld arr:%d\n", j, e);
+    }
+    printf("---Stack bottom----:\n");
+}
+
+void state2str(int state, char outbuf[static 22]){
+    switch(state){
+        case MJPATH_START_S:{
+            char tmp[] = "MJPATH_START_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_KEY_S:{
+            char tmp[] = "MJPATH_KEY_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_KEY_ESCAPE_S:{
+            char tmp[] = "MJPATH_KEY_ESCAPE_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_BEFORE_KEY_S:{
+            char tmp[] = "MJPATH_BEFORE_KEY_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_BEFORE_COLON_S:{
+            char tmp[] = "MJPATH_BEFORE_COLON_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_TYPE_S:{
+            char tmp[] = "MJPATH_TYPE_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_TERMINAL_S:{
+            char tmp[] = "MJPATH_TERMINAL_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_INT_S:{
+            char tmp[] = "MJPATH_INT_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_FLOAT_S:{
+            char tmp[] = "MJPATH_FLOAT_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_STR_S:{
+            char tmp[] = "MJPATH_STR_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_STR_ESCAPE_S:{
+            char tmp[] = "MJPATH_STR_ESCAPE_S";
+            strcpy(outbuf, tmp);
+            break;}
     }
 }

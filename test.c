@@ -7,9 +7,9 @@ int main(){
     DEBUG("%s",z);
     
     const int n = 3;
-    char s1[] = "int$xyz";
-    char s2[] = "str  5$abc.def.ghi";
-    char s3[] = "int$fff";
+    char s1[] = "int$.0123456789";
+    char s2[] = "str  5$.abc\\..def.ghi";
+    char s3[] = "int$.fff";
     char *conf[n];
     conf[0] = s1;
     conf[1] = s2;

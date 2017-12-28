@@ -2,6 +2,7 @@
 #define MJPATH_H
 
 #include <stdlib.h>
+#include <string.h>
 #include "include/queue.h"
 
 typedef struct{
@@ -26,14 +27,14 @@ typedef struct{
     const char** ptr;
 } substrs_t;
 
-LIST_HEAD(head_t, mjpath_target_t) target_list;
+LIST_HEAD(head_t, mjpath_target_t);
 
 struct mjpath_target_t{
     int tag;
     int matches;
     size_t match_level;
     store_t store;
-    const char* substrs[MJPATH_MAX_LEVEL];
+    char const* substrs[MJPATH_MAX_LEVEL];
     LIST_ENTRY(mjpath_target_t) neighbours; 
 };
 typedef struct mjpath_target_t mjpath_target_t;
@@ -53,6 +54,8 @@ enum states{
     MJPATH_STR_ESCAPE_S
 };
 
+void state2str(int state, char outbuf[static 22]);
+
 typedef struct{
     size_t keychar;
     size_t level;
@@ -63,6 +66,7 @@ typedef struct{
     struct head_t target_list;
     int stack[MJPATH_MAX_LEVEL];
 } mjpath_context;
+#define MJPATH_STACK_OBJECT -1
 
 size_t mjpath_allocate(size_t n_targets, mjpath_target_t *targets, 
                     char** config, mjpath_context* ctx);
