@@ -16,8 +16,14 @@ typedef union{
 }store_t;
 
 enum store_tag{
-    INT_TAG,
-    STR_TAG
+    MJPATH_INT_TAG,
+    MJPATH_STR_TAG
+};
+
+enum terminal{
+    MJPATH_TRUE = 1,
+    MJPATH_FALSE = 0,
+    MJPATH_NULL = -1
 };
 
 #define MJPATH_MAX_LEVEL 5
@@ -51,13 +57,15 @@ enum states{
     MJPATH_INT_S,
     MJPATH_FLOAT_S,
     MJPATH_STR_S,
-    MJPATH_STR_ESCAPE_S
+    MJPATH_STR_ESCAPE_S,
+    MJPATH_NEXT_S,
+    MJPATH_DONE_S
 };
 
 void state2str(int state, char outbuf[static 22]);
 
 typedef struct{
-    size_t keychar;
+    size_t char_idx;
     size_t level;
     int sign;
     int state;
@@ -69,10 +77,9 @@ typedef struct{
 #define MJPATH_STACK_OBJECT -1
 
 size_t mjpath_allocate(size_t n_targets, mjpath_target_t *targets, 
-                    char** config, mjpath_context* ctx);
+                    char** config);
 size_t mjpath_init(size_t n_targets, mjpath_target_t *targets, 
                     char** config, mjpath_context* ctx);
-char* mjpath_get(char *json, size_t n_targets,
-        mjpath_target_t *targets, mjpath_context* ctx);
+char* mjpath_get(char *json, mjpath_context* ctx);
 void mjpath_debug(mjpath_context *ctx);
 #endif //MJPATH_H
