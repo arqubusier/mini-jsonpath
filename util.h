@@ -7,6 +7,7 @@
 #ifdef DEBUG_ON
 #include <stdio.h>
 #define DEBUG(fmt, var) printf(__FILE__ "@l:%d in %s\t" #var":" fmt "\n", __LINE__, __func__, var);
+#define DEBUGH(t) printf(__FILE__ "@l:%d in %s\t%s\n", __LINE__, __func__, t);
 #else
 #define DEBUG(x) ;
 #endif

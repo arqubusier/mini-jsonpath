@@ -3,10 +3,10 @@
 #include "include/queue.h"
 
 int main(){
-    char z[] = "Hello, world!";
-    DEBUG("%s",z);
-    char json[] =
-        "{ fff : 123}";
+    char json1[] =
+        "{ \"fff\" : 123}";
+    char json2[] =
+        "{ \"fff\" : 123, \"0123456890\": true}";
     
     const int n = 3;
     char s1[] = "int$.0123456789";
@@ -20,8 +20,6 @@ int main(){
     mjpath_target_t targets[n];
     mjpath_allocate(n, targets, conf);
     mjpath_init(n, targets, conf, &mjpath_ctx);
-    mjpath_debug(&mjpath_ctx);
-
-    mjpath_get(json, &mjpath_ctx);
+    mjpath_get(json2, &mjpath_ctx);
     return 0;
 }

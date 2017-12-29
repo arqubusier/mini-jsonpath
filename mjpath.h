@@ -74,7 +74,11 @@ typedef struct{
     struct head_t target_list;
     int stack[MJPATH_MAX_LEVEL];
 } mjpath_context;
-#define MJPATH_STACK_OBJECT -1
+
+enum stack_elems{
+ MJPATH_STACK_OBJECT = -1,
+ MJPATH_STACK_BOTTOM = -2,
+};
 
 size_t mjpath_allocate(size_t n_targets, mjpath_target_t *targets, 
                     char** config);
