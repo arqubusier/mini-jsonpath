@@ -252,12 +252,14 @@ int close_variable(char c, mjpath_context *ctx){
     
 }
 
-void remove_matches(mjpath_context *ctx){
+void update_matches(mjpath_context *ctx){
     mjpath_target_t *target;
     mjpath_target_t *tmp;
     LIST_FOREACH_SAFE(target, &ctx->target_list, neighbours, tmp){
-        if (target->match_level == ctx->level)
+        if (target->match_level == ctx->level){
+            target->matches++;
             LIST_REMOVE(target, neighbours);
+        }
         else return;
     }
 }
@@ -270,7 +272,7 @@ void handle_int(char c, mjpath_context *ctx){
                 target->store.as_int = ctx->sign*ctx->tmp_int;
             else break;
         }
-        remove_matches(ctx);
+        update_matches(ctx);
     }
     else{
         mjpath_target_t *target;
@@ -290,7 +292,7 @@ void handle_terminal(char c, mjpath_context *ctx){
                 target->store.as_int = ctx->tmp_int;
             else break;
         }
-        remove_matches(ctx);
+        update_matches(ctx);
     }
 }
 
@@ -301,7 +303,7 @@ void handle_float(char c, mjpath_context *ctx){
 void handle_string(char c, mjpath_context *ctx){
     if (c == '\"' && ctx->state != MJPATH_STR_ESCAPE_S){
         ctx->char_idx = 0;
-        remove_matches(ctx);
+        update_matches(ctx);
     }
     else{
         mjpath_target_t *target;
