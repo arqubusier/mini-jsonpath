@@ -1,4 +1,4 @@
-
+#include <stdint.h>
 #include <string.h>
 
 #include "mjpath.h"
@@ -240,7 +240,7 @@ int close_variable(char c, mjpath_context *ctx){
             }
             return 1;
         case ',':
-            stack_e = ctx->stack[--ctx->level];
+            stack_e = ctx->stack[ctx->level];
             if (stack_e == MJPATH_STACK_OBJECT)
                 ctx->state = MJPATH_BEFORE_KEY_S;
             else
@@ -252,14 +252,25 @@ int close_variable(char c, mjpath_context *ctx){
     
 }
 
+void remove_matches(mjpath_context *ctx){
+    mjpath_target_t *target;
+    mjpath_target_t *tmp;
+    LIST_FOREACH_SAFE(target, &ctx->target_list, neighbours, tmp){
+        if (target->match_level == ctx->level)
+            LIST_REMOVE(target, neighbours);
+        else return;
+    }
+}
+
 void handle_int(char c, mjpath_context *ctx){
     if (close_variable(c, ctx)){
         mjpath_target_t *target;
         LIST_FOREACH(target, &ctx->target_list, neighbours){
             if (target->match_level == ctx->level)
                 target->store.as_int = ctx->sign*ctx->tmp_int;
-            else return;
+            else break;
         }
+        remove_matches(ctx);
     }
     else{
         mjpath_target_t *target;
@@ -277,8 +288,9 @@ void handle_terminal(char c, mjpath_context *ctx){
         LIST_FOREACH(target, &ctx->target_list, neighbours){
             if (target->match_level == ctx->level)
                 target->store.as_int = ctx->tmp_int;
-            else return;
+            else break;
         }
+        remove_matches(ctx);
     }
 }
 
@@ -287,8 +299,10 @@ void handle_float(char c, mjpath_context *ctx){
 }
 
 void handle_string(char c, mjpath_context *ctx){
-    if (c == '\"' && ctx->state != MJPATH_STR_ESCAPE_S)
+    if (c == '\"' && ctx->state != MJPATH_STR_ESCAPE_S){
         ctx->char_idx = 0;
+        remove_matches(ctx);
+    }
     else{
         mjpath_target_t *target;
         LIST_FOREACH(target, &ctx->target_list, neighbours){
@@ -298,7 +312,7 @@ void handle_string(char c, mjpath_context *ctx){
                     target->store.as_strn.ptr[ctx->char_idx] = c;
                 else
                     target->store.as_strn.ptr[size-1] = '\0';
-            } else break;
+            } else return;
         }
         ctx->char_idx++;
         if (c == '\\')
@@ -353,48 +367,52 @@ char* mjpath_get(char *const json, mjpath_context* ctx){
         for(size_t i=0; i<n; ++i)
             printf(" ");
         printf("^\n");
-        mjpath_debug(ctx);
+        mjpath_debug_ctx(ctx);
 #endif
     }
 
     return buf_p;
 }
 
+void mjpath_debug_target(mjpath_target_t *target){
+    INFOV("%d",target->tag);
+    INFOV("%d",target->matches);
+    INFOV("%ld",target->match_level);
+    int level = 0;
+    printf("substrs\n");
+    for (;level<MJPATH_MAX_LEVEL; level++){
+        if (target->substrs[level] == NULL)
+                break;
+        char const*c = target->substrs[level];
+        int escape =0;
+        for (;(escape || *c!='.') && *c!='\0';c++){
+            if (*c=='\\')
+                escape = 1;
+            else
+                escape = 0;
+            printf("%c", *c);
+        }
+        printf(" . ");
+    }
+    printf("\n");
+    printf("store: ");
+    if (target->tag == MJPATH_INT_TAG)
+        printf("%d\n", target->store.as_int);
+    else{
+        printf("%s\n", target->store.as_strn.ptr);
+    }
+}
+
 /*
  *
  */
-void mjpath_debug(mjpath_context *ctx){
+void mjpath_debug_ctx(mjpath_context *ctx){
     mjpath_target_t *target;
     
     printf("---Targets begin----:\n");
     LIST_FOREACH(target, &ctx->target_list, neighbours)
     {
-        INFOV("%d",target->tag);
-        INFOV("%d",target->matches);
-        INFOV("%ld",target->match_level);
-        int level = 0;
-        printf("substrs\n");
-        for (;level<MJPATH_MAX_LEVEL; level++){
-            if (target->substrs[level] == NULL)
-                    break;
-            char const*c = target->substrs[level];
-            int escape =0;
-            for (;(escape || *c!='.') && *c!='\0';c++){
-                if (*c=='\\')
-                    escape = 1;
-                else
-                    escape = 0;
-                printf("%c", *c);
-            }
-            printf(" . ");
-        }
-        printf("\n");
-        printf("store: ");
-        if (target->tag == MJPATH_INT_TAG)
-            printf("%d\n", target->store.as_int);
-        else{
-            printf("%s\n", target->store.as_strn.ptr);
-        }
+        mjpath_debug_target(target);
         printf("\n");
     }
     printf("---Targets end----:\n");

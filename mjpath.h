@@ -85,5 +85,6 @@ size_t mjpath_allocate(size_t n_targets, mjpath_target_t *targets,
 size_t mjpath_init(size_t n_targets, mjpath_target_t *targets, 
                     char** config, mjpath_context* ctx);
 char* mjpath_get(char *json, mjpath_context* ctx);
-void mjpath_debug(mjpath_context *ctx);
+void mjpath_debug_target(mjpath_target_t *target);
+void mjpath_debug_ctx(mjpath_context *ctx);
 #endif //MJPATH_H
