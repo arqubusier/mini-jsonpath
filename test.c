@@ -22,6 +22,13 @@ int main(){
     mjpath_target_t targets[n];
     mjpath_allocate(n, targets, conf);
     mjpath_init(n, targets, conf, &mjpath_ctx);
+
+    printf("\n\nTARGETS\n");
+    for(size_t i=0; i<n;++i){
+        mjpath_debug_target(&targets[i]);
+        printf("\n");
+    }
+    
     mjpath_get(json3, &mjpath_ctx);
 
     printf("\n\nRESULTS\n");

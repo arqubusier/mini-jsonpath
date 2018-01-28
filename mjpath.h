@@ -58,6 +58,10 @@ enum states{
     MJPATH_FLOAT_S,
     MJPATH_STR_S,
     MJPATH_STR_ESCAPE_S,
+    MJPATH_STR_UNICODE0_S,
+    MJPATH_STR_UNICODE1_S,
+    MJPATH_STR_UNICODE2_S,
+    MJPATH_STR_UNICODE3_S,
     MJPATH_NEXT_S,
     MJPATH_DONE_S
 };
@@ -84,6 +88,7 @@ size_t mjpath_allocate(size_t n_targets, mjpath_target_t *targets,
                     char** config);
 size_t mjpath_init(size_t n_targets, mjpath_target_t *targets, 
                     char** config, mjpath_context* ctx);
+void mjpath_parsec(const char c, mjpath_context* ctx);
 char* mjpath_get(char *json, mjpath_context* ctx);
 void mjpath_debug_target(mjpath_target_t *target);
 void mjpath_debug_ctx(mjpath_context *ctx);

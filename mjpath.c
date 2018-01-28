@@ -108,6 +108,21 @@ size_t mjpath_init(size_t n_targets, mjpath_target_t targets[],
     return i;
 }
 
+void add_array_matches(mjpath_context* ctx){
+    LIST_FOREACH_SAFE(target,
+            &ctx->target_list, neighbours, tmp)
+    {
+        if (target->match_level + 1 == ctx->level){
+            target->match_level++;
+            LIST_REMOVE(target, neighbours);
+            LIST_INSERT_HEAD(&ctx->target_list, target,
+                        neighbours);
+        }
+        else
+            break;
+    }
+}
+
 void handle_before_key_s(char c, mjpath_context* ctx){
     switch (c){
         case '\"':{
@@ -151,10 +166,12 @@ void handle_key_s(char c, mjpath_context *ctx){
                     &ctx->target_list, neighbours, tmp)
             {
                 DEBUGH("a")
-                char ctarget = target->substrs
-                        [ctx->level][ctx->char_idx];
+                DEBUG("%ld", ctx->char_idx)
+                DEBUG("%ld", ctx->level)
                 DEBUGH("b")
                 if (target->match_level == ctx->level){
+                    char ctarget = target->substrs
+                        [ctx->level][ctx->char_idx];
                     if (ctarget == c){
                         LIST_REMOVE(target, neighbours);
                         LIST_INSERT_HEAD(&ctx->target_list, target,
@@ -171,6 +188,37 @@ void handle_key_s(char c, mjpath_context *ctx){
             ctx->char_idx++;
         }
     }
+}
+
+int close_variable(char c, mjpath_context *ctx){
+    int stack_e;
+    switch (c){
+        case ' ': case '\t': case '\n':
+            ctx->state = MJPATH_NEXT_S;
+            return 1;
+        case ']': case '}':
+            if (ctx->level == 1)
+                ctx->state = MJPATH_DONE_S;                
+            else{
+                int stack_e =  ctx->stack[--ctx->level];
+                if (stack_e != MJPATH_STACK_OBJECT)
+                    ctx->stack[ctx->level] = stack_e+1;
+                ctx->state = MJPATH_NEXT_S;
+            }
+            return 1;
+        case ',':
+            stack_e = ctx->stack[ctx->level];
+            if (stack_e == MJPATH_STACK_OBJECT)
+                ctx->state = MJPATH_BEFORE_KEY_S;
+            else{
+                ctx->stack[ctx->level]++;
+                ctx->state = MJPATH_TYPE_S;
+            }
+            return 1;
+        default:
+            return 0;
+    }
+    
 }
 
 void handle_type_s(char c, mjpath_context *ctx){
@@ -213,7 +261,12 @@ void handle_type_s(char c, mjpath_context *ctx){
         //array
         case '[':
             ctx->stack[++ctx->level] = 0;
+            add_array_matches(ctx);
             ctx->state = MJPATH_TYPE_S;
+            break;
+        //empty array or object
+        case '}': case ']':
+            close_variable(c, ctx);
             break;
         //skip colon after key
         case ':': 
@@ -221,35 +274,6 @@ void handle_type_s(char c, mjpath_context *ctx){
         default: ;
     }
 
-}
-
-int close_variable(char c, mjpath_context *ctx){
-    int stack_e;
-    switch (c){
-        case ' ': case '\t': case '\n':
-            ctx->state = MJPATH_NEXT_S;
-            return 1;
-        case ']': case '}':
-            if (ctx->level == 1)
-                ctx->state = MJPATH_DONE_S;                
-            else{
-                int stack_e =  ctx->stack[--ctx->level];
-                if (stack_e != MJPATH_STACK_OBJECT)
-                    ctx->stack[ctx->level] = stack_e+1;
-                ctx->state = MJPATH_NEXT_S;
-            }
-            return 1;
-        case ',':
-            stack_e = ctx->stack[ctx->level];
-            if (stack_e == MJPATH_STACK_OBJECT)
-                ctx->state = MJPATH_BEFORE_KEY_S;
-            else
-                ctx->state = MJPATH_TYPE_S;
-            return 1;
-        default:
-            return 0;
-    }
-    
 }
 
 void update_matches(mjpath_context *ctx){
@@ -301,9 +325,13 @@ void handle_float(char c, mjpath_context *ctx){
 }
 
 void handle_string(char c, mjpath_context *ctx){
-    if (c == '\"' && ctx->state != MJPATH_STR_ESCAPE_S){
+    if (c == '\"'){
         ctx->char_idx = 0;
         update_matches(ctx);
+        ctx->state = MJPATH_NEXT_S;
+    }
+    else if (c == '\\'){
+        ctx->state = MJPATH_STR_ESCAPE_S;
     }
     else{
         mjpath_target_t *target;
@@ -317,52 +345,122 @@ void handle_string(char c, mjpath_context *ctx){
             } else return;
         }
         ctx->char_idx++;
-        if (c == '\\')
-            ctx->state = MJPATH_STR_ESCAPE_S;
-        else
-            ctx->state = MJPATH_STR_S;
+    }
+}
+
+void handle_string_escape(char c, mjpath_context *ctx){
+    if (c == 'u'){
+        ctx->state = MJPATH_STR_UNICODE0_S;
+    }
+    else{
+        char escape_char;
+        switch (c){
+        case 'b':
+            escape_char = '\b'; break;
+        case 'f':
+            escape_char = '\f'; break;
+        case 'n':
+            escape_char = '\n'; break;
+        case 'r':
+            escape_char = '\r'; break;
+        case 't':
+            escape_char = '\t'; break;
+        case '\\': case '/': case '\"':
+            escape_char = c; break;
+        default:// Unknown escape sequence
+            break;
+        }
+
+        mjpath_target_t *target;
+        LIST_FOREACH(target, &ctx->target_list, neighbours){
+            if (target->match_level == ctx->level){
+                size_t size = target->store.as_strn.size;
+                if (ctx->char_idx < size)
+                    target->store.as_strn.ptr[ctx->char_idx] = escape_char;
+                else
+                    target->store.as_strn.ptr[size-1] = '\0';
+            } else return;
+        }
+        ctx->char_idx++;
+        ctx->state = MJPATH_STR_S;
+    }
+}
+
+/* TODO */
+void handle_unicode(char c, mjpath_context *ctx){
+    if (ctx->state == MJPATH_STR_UNICODE0_S)
+        ctx->state = MJPATH_STR_UNICODE1_S;
+    else if (ctx->state == MJPATH_STR_UNICODE1_S)
+        ctx->state = MJPATH_STR_UNICODE2_S;
+    else if (ctx->state == MJPATH_STR_UNICODE2_S)
+        ctx->state = MJPATH_STR_UNICODE3_S;
+    else if (ctx->state == MJPATH_STR_UNICODE3_S)
+        ctx->state = MJPATH_STR_S;
+
+    mjpath_target_t *target;
+    LIST_FOREACH(target, &ctx->target_list, neighbours){
+        if (target->match_level == ctx->level){
+            size_t size = target->store.as_strn.size;
+            if (ctx->char_idx < size)
+                target->store.as_strn.ptr[ctx->char_idx] = 'X';
+            else
+                target->store.as_strn.ptr[size-1] = '\0';
+        } else return;
+    }
+    ctx->char_idx++;
+}
+
+void mjpath_parsec(const char c, mjpath_context* ctx){
+    switch(ctx->state){
+        case MJPATH_START_S:
+            switch(c){
+                case '{':
+                    DEBUGH("")
+                    ctx->stack[++ctx->level] = MJPATH_STACK_OBJECT;
+                    ctx->state = MJPATH_BEFORE_KEY_S;
+                    break;
+                case '[':
+                    ctx->stack[++ctx->level] = 0;
+                    add_array_matches(ctx);
+                    ctx->state = MJPATH_TYPE_S;
+                    break;
+                case ' ': case '\t': case '\n':
+                default:
+                    ;
+            }break;
+        case MJPATH_BEFORE_KEY_S:
+            handle_before_key_s(c, ctx); break;
+        case MJPATH_KEY_S:
+            handle_key_s(c, ctx); break;
+        case MJPATH_TYPE_S:
+            handle_type_s(c, ctx); break;
+        case MJPATH_TERMINAL_S:
+            handle_terminal(c, ctx); break;
+        case MJPATH_INT_S:
+            handle_int(c, ctx); break;
+        case MJPATH_FLOAT_S:
+            handle_float(c, ctx); break;
+        case MJPATH_STR_S:
+            handle_string(c, ctx); break;
+        case MJPATH_NEXT_S:
+            close_variable(c, ctx); break;
+        case MJPATH_STR_ESCAPE_S:
+            handle_string_escape(c, ctx);break;
+        case MJPATH_STR_UNICODE0_S:
+        case MJPATH_STR_UNICODE1_S:
+        case MJPATH_STR_UNICODE2_S:
+        case MJPATH_STR_UNICODE3_S:
+            handle_unicode(c, ctx);
+
+        default:
+            ;
     }
 }
 
 char* mjpath_get(char *const json, mjpath_context* ctx){
     char *buf_p = json;
     for (; *buf_p!='\0'; ++buf_p){
-        char c = *buf_p;
-        switch(ctx->state){
-            case MJPATH_START_S:
-                switch(c){
-                    case '{':
-                        DEBUGH("")
-                        ctx->stack[++ctx->level] = MJPATH_STACK_OBJECT;
-                        ctx->state = MJPATH_BEFORE_KEY_S;
-                        break;
-                    case '[':
-                        ctx->stack[++ctx->level] = 0;
-                        ctx->state = MJPATH_TYPE_S;
-                        break;
-                    case ' ': case '\t': case '\n':
-                    default:
-                        ;
-                }break;
-            case MJPATH_BEFORE_KEY_S:
-                handle_before_key_s(c, ctx); break;
-            case MJPATH_KEY_S:
-                handle_key_s(c, ctx); break;
-            case MJPATH_TYPE_S:
-                handle_type_s(c, ctx); break;
-            case MJPATH_TERMINAL_S:
-                handle_terminal(c, ctx); break;
-            case MJPATH_INT_S:
-                handle_int(c, ctx); break;
-            case MJPATH_FLOAT_S:
-                handle_float(c, ctx); break;
-            case MJPATH_STR_S:
-                handle_string(c, ctx); break;
-            case MJPATH_NEXT_S:
-                close_variable(c, ctx); break;
-            default:
-                ;
-        }
+        mjpath_parsec(*buf_p, ctx);
 #ifdef DEBUG_ON
         printf("%s\n", json);
         size_t n = buf_p - json;
@@ -488,6 +586,22 @@ void state2str(int state, char outbuf[static 22]){
             break;}
         case MJPATH_STR_ESCAPE_S:{
             char tmp[] = "MJPATH_STR_ESCAPE_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_STR_UNICODE0_S:{
+            char tmp[] = "MJPATH_STR_UNICODE0_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_STR_UNICODE1_S:{
+            char tmp[] = "MJPATH_STR_UNICODE1_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_STR_UNICODE2_S:{
+            char tmp[] = "MJPATH_STR_UNICODE2_S";
+            strcpy(outbuf, tmp);
+            break;}
+        case MJPATH_STR_UNICODE3_S:{
+            char tmp[] = "MJPATH_STR_UNICODE3_S";
             strcpy(outbuf, tmp);
             break;}
         case MJPATH_NEXT_S:{
