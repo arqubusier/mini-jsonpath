@@ -1,7 +1,7 @@
 all: singlepath_str test
 
-singlepath_str: mjpath.c mjpath.h singlepath_str.c
-	gcc -Wall -Wextra -g -o $@  mjpath.c singlepath_str.c 
+bin/eval: build/mjpath.o build/eval.o
+	gcc -Wall -Wextra -o $@ $^
 
 bin/test: build/mjpath.o build/test.o
 	gcc -Wall -Wextra -o $@ $^

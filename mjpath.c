@@ -21,12 +21,20 @@ int c2int(char c){
 }
 
 /**
+ * takes an array of 'config_expression', which  is a mini-jsonpath expression
+ * prefixed with a string of one of two formats:
+ *   - 'int<whitespaces>$', and
+ *   - 'str<whitespace><whitespaces><decimal-number><whitespaces>$'.
+ * With:
+ *   - <whitespaces>: zero or more whitespaces,
+ *   - <whitespace>: a whitespace.
+ *   - <decimal-number>: a decimal number without delimiters
  *
- *  "int$....."
- *  "str 10$.."
- *
- *  Returns the number of mjpath_targets that have been
- *  successfully allocated.
+ * The function sets up dynamic storage used in target structs according to the
+ * config expressions
+ * 
+ * Returns the number of mjpath_targets that have been
+ * successfully allocated.
  */
 size_t mjpath_allocate(size_t n_targets, mjpath_target_t *targets, 
                     char** config){
