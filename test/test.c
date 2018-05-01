@@ -1,6 +1,6 @@
-#include "util.h"
-#include "mjpath.h"
-#include "include/queue.h"
+#include "../util.h"
+#include "../mjpath.h"
+#include "../include/queue.h"
 
 int main(){
     char json1[] =

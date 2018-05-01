@@ -20,7 +20,7 @@ int c2int(char c){
     }
 }
 
-/*
+/**
  *
  *  "int$....."
  *  "str 10$.."
@@ -51,7 +51,7 @@ size_t mjpath_allocate(size_t n_targets, mjpath_target_t *targets,
     return i;
 }
 
-/*
+/**
  * Initialize substring fields for each target in increasing order
  * starting from index 0.
  *
@@ -109,17 +109,19 @@ size_t mjpath_init(size_t n_targets, mjpath_target_t targets[],
 }
 
 void add_array_matches(mjpath_context* ctx){
-    LIST_FOREACH_SAFE(target,
-            &ctx->target_list, neighbours, tmp)
+  mjpath_target_t *target;
+  mjpath_target_t *tmp;
+  LIST_FOREACH_SAFE(target,
+                    &ctx->target_list, neighbours, tmp)
     {
-        if (target->match_level + 1 == ctx->level){
-            target->match_level++;
-            LIST_REMOVE(target, neighbours);
-            LIST_INSERT_HEAD(&ctx->target_list, target,
-                        neighbours);
-        }
-        else
-            break;
+      if (target->match_level + 1 == ctx->level){
+        target->match_level++;
+        LIST_REMOVE(target, neighbours);
+        LIST_INSERT_HEAD(&ctx->target_list, target,
+                         neighbours);
+      }
+      else
+        break;
     }
 }
 

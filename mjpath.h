@@ -28,13 +28,12 @@ enum terminal{
 
 #define MJPATH_MAX_LEVEL 5
 
-typedef struct{
-    size_t size;
-    const char** ptr;
-} substrs_t;
-
 LIST_HEAD(head_t, mjpath_target_t);
 
+/**
+ * Stores details about the current match results of a single mini-jsonpath
+ * expression.
+ */
 struct mjpath_target_t{
     int tag;
     int matches;
