@@ -425,7 +425,6 @@ void mjpath_parsec(const char c, mjpath_context* ctx){
         case MJPATH_START_S:
             switch(c){
                 case '{':
-                    DEBUGH("")
                     ctx->stack[++ctx->level] = MJPATH_STACK_OBJECT;
                     ctx->state = MJPATH_BEFORE_KEY_S;
                     break;
